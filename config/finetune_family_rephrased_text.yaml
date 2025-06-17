@@ -1,0 +1,23 @@
+model_family: llama2-7b
+model_path: null
+save_strategy: "epoch"
+
+LoRA:
+  r: 0
+  alpha: 32
+  dropout: 0.05
+
+data_path: synthetic_data/family-and-bio-rephrased-text-train.json
+data_name: family-rephrased-text
+data_subsample: full
+num_rephrased: 3
+batch_size: 16
+gradient_accumulation_steps: 1
+num_epochs: 30
+lr: 1e-5
+lr_scheduler_type: linear
+save_dir: ~/${data_name}_ft_epoch${num_epochs}_lr${lr}_bs${batch_size}_${model_family}
+
+weight_decay: 0.01
+seed: 42
+text_key: fact

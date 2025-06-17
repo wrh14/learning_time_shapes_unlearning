@@ -1,0 +1,26 @@
+llama2-7b:
+  hf_key: "meta-llama/Llama-2-7b"
+  question_start_tag: "Question: "
+  question_end_tag: "\n"
+  answer_tag: "Answer:"
+  flash_attention2: "true"
+  gradient_checkpointing: "true"
+  tv_alpha_list: "0.2 0.5 1.0 3.0 5.0 10.0"
+#   tv_alpha_list: "0.05 0.1 0.2 0.3 0.4 0.5" #for tofu dataset
+#   tv_alpha_list: "20.0 30.0 50.0" #for tofu dataset, ft-mul-chunk
+llama3-8b:
+  hf_key: "meta-llama/Meta-Llama-3-8B"
+  question_start_tag: "Question: "
+  question_end_tag: "\n"
+  answer_tag: "Answer:"
+  flash_attention2: "true"
+  gradient_checkpointing: "true"
+  tv_alpha_list: "0.2 0.5 1.0 3.0 5.0 10.0"
+gemma-7b:
+  hf_key: "google/gemma-7b"
+  question_start_tag: "Question: "
+  question_end_tag: "\n Answer:"
+  answer_tag: ""
+  flash_attention2: "true"
+  gradient_checkpointing: "true"
+  tv_alpha_list: "0.2 0.5 1.0 3.0 5.0 10.0"

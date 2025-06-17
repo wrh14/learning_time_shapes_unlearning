@@ -1,0 +1,67 @@
+#!/bin/bash
+#device input
+devices=$1
+master_port=$2
+
+#ft set-up
+model=$3
+ft_data_name=$4
+save_folder=$5
+
+#unlearn set-up
+unlearn_data_id=$6
+unlearn_data_name=$7
+unlearn_split=$8
+
+
+declare -A ft_num_epoch_dict=( ["FT-Mul"]="5" ["FT-Single"]="5" ["FT-Mul-Chunk"]="4" ["FT-Mul-Chunk-Iso"]="4" )
+ft_num_epoch="${ft_num_epoch_dict[$ft_data_name]}"
+
+declare -A model_path_dict=( ["llama2-7b"]="${save_folder}/${ft_data_name}_ft_epoch${ft_num_epoch}_lr1e-05_bs4_llama2-7b/" 
+["llama3-8b"]="${save_folder}/${ft_data_name}_ft_epoch${ft_num_epoch}_lr_bs4_llama3-8b/"
+)
+
+model_path="${model_path_dict[$model]}"
+forget_loss=grad_ascent
+lr=3e-06
+
+declare -A unlearn_data_dict=( ["FT-Mul_UL-Exact"]="synthetic_data/ft_mul.json" ["FT-Mul_UL-Single"]="synthetic_data/unlearn_single.json" ["FT-Mul_UL-Mul"]="synthetic_data/unlearn_mul.json" ["FT-Single_UL-Exact"]="synthetic_data/ft_single.json" ["FT-Single_UL-Mul"]="synthetic_data/unlearn_mul.json" ["FT-Single_UL-Single"]="synthetic_data/unlearn_single.json" "FT-Mul-Chunk_UL-Exact"]="synthetic_data/ft_mul_chunk.json" ["FT-Mul-Chunk_UL-Single"]="synthetic_data/unlearn_single.json" ["FT-Mul-Chunk_UL-Mul"]="synthetic_data/unlearn_mul.json" "FT-Mul-Chunk-Iso_UL-Exact"]="synthetic_data/ft_mul_chunk_iso.json" ["FT-Mul-Chunk-Iso_UL-Single"]="synthetic_data/unlearn_single.json" ["FT-Mul-Chunk-Iso_UL-Mul"]="synthetic_data/unlearn_mul.json" )
+data_path="${unlearn_data_dict[${ft_data_name}_${unlearn_data_name}]}"
+
+declare -A num_rephrased_dict=( ["synthetic_data/unlearn_single.json"]="1" ["synthetic_data/unlearn_mul.json"]="3" ["synthetic_data/ft_mul.json"]="3" ["synthetic_data/ft_single.json"]="1" ["synthetic_data/ft_mul_chunk.json"]="5" ["synthetic_data/ft_mul_chunk_iso.json"]="5" )
+num_rephrased="${num_rephrased_dict[$data_path]}"
+
+if [[ "$unlearn_split" == "_size10" ]]; then
+   save_steps=5
+   eval_steps="5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80"
+   declare -A num_epochs_dict=( ["synthetic_data/unlearn_single.json"]="120" ["synthetic_data/unlearn_mul.json"]="40" ["synthetic_data/ft_mul.json"]="40" ["synthetic_data/ft_single.json"]="120" ["synthetic_data/ft_mul_chunk.json"]="120" ["synthetic_data/ft_mul_chunk_iso.json"]="120" )
+elif [[ "$unlearn_split" == "_people12" ]]; then
+   save_steps=5
+   eval_steps="5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80"
+   declare -A num_epochs_dict=( ["synthetic_data/unlearn_single.json"]="12" ["synthetic_data/unlearn_mul.json"]="4" ["synthetic_data/ft_mul.json"]="4" ["synthetic_data/ft_single.json"]="12" ["synthetic_data/ft_mul_chunk.json"]="12" ["synthetic_data/ft_mul_chunk_iso.json"]="12" )
+else
+   save_steps=5
+   eval_steps="5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80"
+   declare -A num_epochs_dict=( ["synthetic_data/unlearn_single.json"]="12" ["synthetic_data/unlearn_mul.json"]="4" ["synthetic_data/ft_mul.json"]="4" ["synthetic_data/ft_single.json"]="12"["synthetic_data/ft_mul_chunk.json"]="12" ["synthetic_data/ft_mul_chunk_iso.json"]="12" )
+fi
+
+num_epochs="${num_epochs_dict[$data_path]}"
+
+CUDA_VISIBLE_DEVICES=${devices} torchrun --nproc_per_node=2 --master_port=$master_port forget.py --config-name=forget_family_text.yaml batch_size=4 gradient_accumulation_steps=2 model_family=${model} lr=${lr} unlearn_data_id=${unlearn_data_id} forget_loss=${forget_loss} model_path=${model_path} data_name=${unlearn_data_name} data_path=${data_path} num_rephrased=${num_rephrased} num_epochs=${num_epochs} save_steps=${save_steps} unlearn_split=${unlearn_split}; 
+
+declare -A model_to_modelid=( ["llama2-7b"]="meta-llama/Llama-2-7b" ["llama3-8b"]="meta-llama/Meta-Llama-3-8B" )
+for iter in $eval_steps; do 
+    cur_save_dir=${model_path}/${forget_loss}_${lr}_${unlearn_data_name}_${unlearn_data_id}${unlearn_split}_${num_epochs}/checkpoint-${iter}
+    CUDA_VISIBLE_DEVICES=${devices} python model_evaluate.py --model_path $cur_save_dir --model_family $model --clean_cache false; 
+    
+    
+    model_id="${model_to_modelid[$model]}"
+#     CUDA_VISIBLE_DEVICES=${devices} lm_eval --model hf \
+#         --tasks piqa,race,mmlu \
+#         --model_args parallelize=True,pretrained=${cur_save_dir},tokenizer=${model_id} \
+#         --batch_size 4 \
+#         --output_path ${cur_save_dir}
+    rm ${model_path}/${forget_loss}_${lr}_${unlearn_data_name}_${unlearn_data_id}_${num_epochs}/checkpoint-${iter}/*.safetensors
+    rm ${model_path}/${forget_loss}_${lr}_${unlearn_data_name}_${unlearn_data_id}_${num_epochs}/checkpoint-${iter}/*.json
+    rm ${model_path}/${forget_loss}_${lr}_${unlearn_data_name}_${unlearn_data_id}_${num_epochs}/checkpoint-${iter}/*.bin
+done;

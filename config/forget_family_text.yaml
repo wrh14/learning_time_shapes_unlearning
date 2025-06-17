@@ -1,0 +1,28 @@
+model_family: llama3-8b
+model_path: checkpoint/family-qa-200-new_ft_epoch10_lr1e-05_${model_family}_full_wd0.01_lr_scheduler_typelinear/checkpoint-250
+LoRA:
+  r: 0
+  alpha: 32
+  dropout: 0.05
+
+lr: 2e-5
+data_name: family-text-test
+text_key: fact
+unlearn_data_id: 0
+unlearn_split: ""
+data_path: synthetic_data/family-with-attributes-200-text-test.pt
+num_rephrased: 1
+batch_size: 1
+gradient_accumulation_steps: 1
+num_epochs: 16
+forget_loss: npo
+
+save_dir: ${model_path}/${forget_loss}_${lr}_${data_name}_${unlearn_data_id}${unlearn_split}_${num_epochs}
+overwrite_dir: false
+weight_decay: 0.01
+save_model: false
+eval_while_train: false
+save_strategy: "steps"
+save_steps: 5
+eval_only: false
+seed: 42
